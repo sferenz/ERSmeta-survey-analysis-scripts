@@ -1,0 +1,29 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: ERSmeta Evaluation Scripts
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Stephan
+    family-names: Ferenz
+    email: stephan.ferenz@uol.de
+    affiliation: Carl von Ossietzky Universität Oldenburg
+    orcid: 'https://orcid.org/0000-0001-9523-7227'
+repository-code: 'https://github.com/sferenz/ERSmeta-survey-analysis-scripts'
+abstract: >-
+  This repository contains scripts and utilities for
+  analyzing survey data and metadata related to the metadata
+  schema ERSmeta and the metadata support tool SMECS. The
+  codebase is designed to process survey CSV files, compute
+  statistics, generate figures (boxplots, pie charts, bar
+  charts), and analyze metadata JSON files according to a
+  defined schema.
+keywords:
+  - metadata schema
+  - survey analysis
+  - ERSmeta
+license: MIT

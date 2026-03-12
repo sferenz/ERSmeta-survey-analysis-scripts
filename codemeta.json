@@ -1,0 +1,32 @@
+{
+    "@context": "https://w3id.org/codemeta/3.0",
+    "applicationCategory": "SoftwareSourceCode",
+    "author": [
+        {
+            "affiliation": {
+                "name": "Carl von Ossietzky Universität Oldenburg",
+                "@type": "Organization"
+            },
+            "email": "stephan.ferenz@uol.de",
+            "familyName": "Ferenz",
+            "givenName": "Stephan",
+            "@id": "https://orcid.org/0000-0001-9523-7227",
+            "@type": "Person"
+        }
+    ],
+    "codeRepository": "https://github.com/sferenz/ERSmeta-survey-analysis-scripts",
+    "dateCreated": "2025-12-15",
+    "dateModified": "2025-12-15",
+    "description": "This repository contains scripts and utilities for analyzing survey data and metadata related to the metadata schema ERSmeta and the metadata support tool SMECS. The codebase is designed to process survey CSV files, compute statistics, generate figures (boxplots, pie charts, bar charts), and analyze metadata JSON files according to a defined schema.",
+    "downloadUrl": "https://github.com/sferenz/ERSmeta-survey-analysis-scripts/releases",
+    "license": "https://spdx.org/licenses/MIT",
+    "name": "ERSmeta Evaluation Scripts",
+    "programmingLanguage": "Python",
+    "softwareRequirements": [
+        "pandas",
+        "matplotlib",
+        "PyPDF2"
+    ],
+    "issueTracker": "https://github.com/sferenz/ERSmeta-survey-analysis-scripts/issues",
+    "@type": "SoftwareSourceCode"
+}
