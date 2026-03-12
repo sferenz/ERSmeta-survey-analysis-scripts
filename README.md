@@ -58,6 +58,9 @@ The scripts are the main entry points for running the analysis pipeline. They ha
 - `paper_script.py`  
   This script orchestrates the analysis and visualization of survey and metadata results for the paper on ERSmeta. It loads survey responses and metadata files, computes descriptive statistics, and generates publication-ready figures (boxplots, histograms) for inclusion in LaTeX documents. The script is designed for reproducible research and produces all outputs in a specified results directory.
 
+- `diss_script.py`  
+  This script orchestrates the analysis and visualization of survey and metadata results for the dissertation of Stephan Ferenz. It loads survey responses and metadata files, computes descriptive statistics, and generates publication-ready figures (boxplots, histograms) for inclusion in LaTeX documents. The script is designed for reproducible research and produces all outputs in a specified results directory.
+
 
 
 

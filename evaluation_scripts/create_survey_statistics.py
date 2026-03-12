@@ -205,17 +205,13 @@ def generate_dropout_reasons_diagrams(
         - Prints a warning if the sum of categorized states does not match the number of participants.
     """
     states = {
-        "Not started": df['lastpage'].isna().sum() + (df['lastpage'] == '').sum() + (df['lastpage'] == -1).sum(),
+        "Start screen": df['lastpage'].isna().sum() + (df['lastpage'] == '').sum() + (df['lastpage'] == -1).sum(),
         "Stop during demographics": (df['lastpage'] == 1).sum()+ (df['lastpage'] == 0).sum(),
-        "Stop during evaluation part": df['lastpage'].isin([i for i in range(4, 12)]).sum() + (
-                (df['lastpage'] == 3) &
-                (df['G03Q10'] == "Yes.")
-            ).sum(),
         "Closed repository": (
                 (df['lastpage'] == 2) &
                 (df['G00Q09'] == "The chosen software is in a closed GitHub or GitLab repository.")
             ).sum(),
-        "Software is not available": (
+        "Unavailable software": (
                 (df['lastpage'] == 2) &
                 (df['G00Q09'] == "The chosen software is not available on GitHub or GitLab.")
             ).sum(),
@@ -230,6 +226,10 @@ def generate_dropout_reasons_diagrams(
         "Not enough time": (
                 (df['lastpage'] == 3) &
                 (df['G03Q10'] == "No, I do not have enough time for that.")
+            ).sum(),
+        "Stop during evaluation part": df['lastpage'].isin([i for i in range(4, 12)]).sum() + (
+                (df['lastpage'] == 3) &
+                (df['G03Q10'] == "Yes.")
             ).sum(),
         "Finalized evaluation":  (df['lastpage'] == 12).sum()
         }
@@ -253,5 +253,5 @@ def generate_dropout_reasons_diagrams(
         states_series,
         output_pdf=f"{filename_prefix}participant_types_pie_chart.pdf",
         column_description_dict=description_dict,
-        title=chart_title
+        title=""
     )

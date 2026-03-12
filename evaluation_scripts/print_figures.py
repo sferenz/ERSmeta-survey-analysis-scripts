@@ -48,6 +48,7 @@ LIKERT_MAPPING = {
     "Agree": 4,
     "Strongly Agree": 5
 }
+LIKERT_KEYS = set(LIKERT_MAPPING.keys())
 LIKERT_LABELS = [
     "Strongly\nDisagree",
     "Disagree",
@@ -56,6 +57,70 @@ LIKERT_LABELS = [
     "Strongly\nAgree"
 ]
 LIKERT_TICKS = list(LIKERT_MAPPING.values())
+
+def is_likert_column(series, likert_keys):
+    """Return True if all non-null values in the series are Likert keys."""
+    unique_vals = set(series.dropna().unique())
+    return unique_vals.issubset(likert_keys)
+
+def boxes_overlap(box1, box2):
+    """
+    Returns True if two boxes overlap.
+    Each box is a tuple/list: (x, y, width, height), where (x, y) is the center.
+    """
+    
+    if min_distance_between_boxes(box1, box2) > 0.1:
+        return False
+    else:
+        return True
+
+def min_distance_between_boxes(box1, box2):
+    """
+    Returns the minimum distance between two boxes.
+    Each box is a tuple/list: (x, y, width, height), where (x, y) is the center.
+    If boxes overlap, the distance is 0.
+    """
+    x1, y1, w1, h1 = box1
+    x2, y2, w2, h2 = box2
+
+    # Calculate the half-widths and half-heights
+    hw1, hh1 = w1 / 2, h1 / 2
+    hw2, hh2 = w2 / 2, h2 / 2
+
+    # Calculate the distance between box edges along x and y
+    dx = max(abs(x1 - x2) - (hw1 + hw2), 0)
+    dy = max(abs(y1 - y2) - (hh1 + hh2), 0)
+
+    # If boxes overlap, dx or dy will be 0, so distance is 0
+    return np.hypot(dx, dy)
+
+def _resolve_horizontal_overlap(boxes, ax, step=0.01, max_attempts=30):
+    """
+    Shift overlapping boxes left/right in display (pixel) coordinates until no overlap remains.
+    Each box: (x, y, width, height) in axes coordinates.
+    Returns new list of (x, y, width, height) in axes coordinates.
+    """
+    
+    # Work on a copy to avoid mutating the input
+    boxes_shifted = [list(box) for box in boxes]
+
+    for attempt in range(max_attempts):
+        moved = False
+        n = len(boxes_shifted)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if boxes_overlap(boxes_shifted[i], boxes_shifted[j]):
+                    # Determine which box is left and which is right
+                    if boxes_shifted[i][0] <= boxes_shifted[j][0]:
+                        left_idx, right_idx = i, j
+                    else:
+                        left_idx, right_idx = j, i
+                    # Shift left box further left, right box further right
+                    boxes_shifted[left_idx][0] -= step / 2
+                    boxes_shifted[right_idx][0] += step / 2
+                    moved = True
+
+    return boxes_shifted
 
 def _plot_boxplots_with_background(
     ax,
@@ -120,8 +185,9 @@ def _plot_boxplots_with_background(
         labels=ytick_labels if show_ylabels else [''] * len(ytick_labels),
         showmeans=True,
         meanline=True,
-        medianprops={'linewidth': 4, 'color': 'red', 'linestyle': 'solid'},
+        medianprops={'linewidth': 3, 'color': 'red', 'linestyle': 'solid'},
         meanprops={'linewidth': 3, 'color': 'orange', 'linestyle': 'solid'},
+        widths=0.5
     )
 
     if show_ylabels:
@@ -135,7 +201,7 @@ def _plot_boxplots_with_background(
     # Annotate mean and variance for each boxplot
     for i, (mean, var) in enumerate(zip(means, variances), start=1):
         if not np.isnan(mean):
-            ax.text(LIKERT_TICKS[-1] + 0.3, i, f"Mean: {mean:.2f}\nVar: {var:.2f}", va='center', fontsize=10)
+            ax.text(LIKERT_TICKS[-1] + 0.3, i, f"mean: {mean:.2f}\nvar: {var:.2f}", va='center', fontsize=10)
 
     # Draw dotted line between groups and add group headings
     if group_names and group_lengths and len(group_lengths) > 1:
@@ -144,8 +210,16 @@ def _plot_boxplots_with_background(
             # Add rotated group heading
             #x_pos = -0.52  # Position to the left of y-axis
             x_pos = -1.27  # Position to the left of y-axis
-            #y_center = y_offset + (glen-1) / 2.0 + 2.5
-            y_center = y_offset + (glen)
+            y_center = y_offset + (glen) + 0.3
+            #y_center = y_offset + (glen)
+
+            if gname == "Usefulness of Elements":
+                y_center = y_center - 1
+            elif gname == "Descriptions":
+                y_center = y_center - 0.7
+            elif gname == "Value Vocabularies":
+                y_center = y_center - 0.3
+
             ax.text(
                 x_pos, y_center, gname,
                 va='center', ha='right',
@@ -156,10 +230,18 @@ def _plot_boxplots_with_background(
             y_offset += glen
             # Draw dotted line after each group except the last
             if idx < len(group_lengths) - 1:
-                ax.axhline(y=y_offset + 0.5, color='black', linestyle='dotted', linewidth=1)
+                ax.axhline(
+                    y=y_offset + 0.5, 
+                    color='black', 
+                    linestyle='dotted', 
+                    linewidth=1, 
+                    xmin=x_pos-0.1,  # extend a bit to the left of the axes
+                    xmax=1.3,
+                    clip_on=False
+                )
 
     # Create custom legend handles for mean and median
-    median_line = mlines.Line2D([], [], color='red', linewidth=4, linestyle='solid', label='Median')
+    median_line = mlines.Line2D([], [], color='red', linewidth=3, linestyle='solid', label='Median')
     mean_line = mlines.Line2D([], [], color='orange', linewidth=3, linestyle='solid', label='Mean')
     handles = [mean_line, median_line]
 
@@ -167,7 +249,7 @@ def _plot_boxplots_with_background(
     ax.legend(
         handles=handles,
         loc='upper center',
-        bbox_to_anchor=(0.5, -0.05),  # Place legend below the axes
+        bbox_to_anchor=(0.5, -0.1),  # Place legend below the axes
         ncol=len(handles),
         frameon=True
     )
@@ -241,25 +323,35 @@ def generate_pdf_with_boxplots(
     if overall_title:
         overall_title = f"{overall_title} (n={n_answers})"
 
+    max_lines = 1
     for col in columns:
-        if pd.api.types.is_numeric_dtype(df[col]):
-            data = df[col].dropna()
+        col_data = df[col]
+        if is_likert_column(col_data, LIKERT_KEYS):
+            data = col_data.map(LIKERT_MAPPING).dropna()
         else:
-            data = df[col].map(LIKERT_MAPPING).dropna()
+            data = pd.to_numeric(col_data, errors='coerce').dropna()
+
         if len(data) == 0:
             data = pd.Series([np.nan])
         boxplot_data.append(data)
         desc = column_description_dict.get(col, col) if column_description_dict else col
         wrapped = textwrap.wrap(desc, width=max_desc_width)
-        if len(wrapped) > max_desc_lines:
+        num_lines = len(wrapped)
+        if num_lines > max_desc_lines:
             wrapped = wrapped[:max_desc_lines]
             wrapped[-1] += '...'
+        if num_lines > max_lines:
+            max_lines = num_lines
         ytick_labels.append('\n'.join(wrapped))
         means.append(data.mean())
         variances.append(data.var())
 
+    line_height = 0.6
+    if max_lines > 3:
+        line_height = 0.8
+
     num_plots = len(boxplot_data)
-    fig_height = max(6, 0.7 * num_plots)
+    fig_height = max(2, line_height * num_plots)
     fig, ax = plt.subplots(figsize=(4, fig_height))
     #fig.subplots_adjust(left=0.32) 
 
@@ -375,8 +467,21 @@ def generate_pdf_sus(sus_input, output_pdf, title=None):
         variances.append(sus_clean.var())
 
     num_plots = len(boxplot_data)
-    fig_height = max(4, 0.7 * num_plots)
+    fig_height = max(2.5, .6 * num_plots + 1.5)
     fig, ax = plt.subplots(figsize=(10, fig_height))
+
+    # If more than one boxplot, draw dotted line after first one
+    if len(sus_dict) > 1:
+        y_offset = len(sus_dict) - 1
+        ax.axhline(
+            y=y_offset + 0.5, 
+            color='black', 
+            linestyle='dotted', 
+            linewidth=1,
+            xmin=-2,  # extend a bit to the left of the axes
+            xmax=1.3,
+            clip_on=False 
+        )
 
     # Draw background category regions
     for i in range(num_plots):
@@ -391,11 +496,12 @@ def generate_pdf_sus(sus_input, output_pdf, title=None):
         boxplot_data,
         vert=False,
         patch_artist=True,
-        showmeans=True,
+        labels=ytick_labels,
+        showmeans=True,        
         meanline=True,
-        medianprops={'linewidth': 4, 'color': 'red', 'linestyle': 'solid'},
+        medianprops={'linewidth': 3, 'color': 'red', 'linestyle': 'solid'},
         meanprops={'linewidth': 3, 'color': 'orange', 'linestyle': 'solid'},
-        labels=ytick_labels
+        widths=0.5
     )
 
     ax.set_yticklabels(ytick_labels, fontsize=12)
@@ -413,26 +519,46 @@ def generate_pdf_sus(sus_input, output_pdf, title=None):
     for i, (mean, var) in enumerate(zip(means, variances), start=1):
         if not np.isnan(mean):
             #ax.text(102, i, f"Mean: {mean:.2f}\nVar: {var:.2f}", va='center', fontsize=9)
-            ax.text(102, i, f"Mean: {mean:.2f}", va='center', fontsize=12)
+            ax.text(102, i, f"mean: {mean:.2f}", va='center', fontsize=12)
+
+    # Add category labels above the plot
+    y_text = 1.02  # Slightly above the axes
+    ax.text(25, y_text, "Not acceptable", ha='center', va='bottom', fontsize=13, fontweight='bold', color='#b22222', transform=ax.get_xaxis_transform())
+    ax.text(60, y_text, "Marginal", ha='center', va='bottom', fontsize=13, fontweight='bold', color='#b8860b', transform=ax.get_xaxis_transform())
+    ax.text(85, y_text, "Acceptable", ha='center', va='bottom', fontsize=13, fontweight='bold', color='#38761d', transform=ax.get_xaxis_transform())
 
     # Custom legend for categories
-    legend_elements = [
-        Patch(facecolor='#d9ead3', edgecolor='gray', alpha=0.5, label='Acceptable (70-100)'),
-        Patch(facecolor='#fff2cc', edgecolor='gray', alpha=0.5, label='Marginal (50-70)'),
-        Patch(facecolor='#ffcccc', edgecolor='gray', alpha=0.5, label='Not acceptable (0-50)')
-    ]
+ #  legend_elements = [
+ #       Patch(facecolor='#d9ead3', edgecolor='gray', alpha=0.5, label='Acceptable (70-100)'),
+ #       Patch(facecolor='#fff2cc', edgecolor='gray', alpha=0.5, label='Marginal (50-70)'),
+#        Patch(facecolor='#ffcccc', edgecolor='gray', alpha=0.5, label='Not acceptable (0-50)')
+#    ]
 
     # Create custom legend handles for mean and median
-    median_line = mlines.Line2D([], [], color='red', linewidth=4, linestyle='solid', label='Median')
+    median_line = mlines.Line2D([], [], color='red', linewidth=3, linestyle='solid', label='Median')
     mean_line = mlines.Line2D([], [], color='orange', linewidth=3, linestyle='solid', label='Mean')
-    handles = [mean_line, median_line] + legend_elements
+    handles = [mean_line, median_line] #+ legend_elements
+
+    # # Add the legend below the x-axis
+    # ax.legend(
+    #     handles=handles,
+    #     loc='upper right',
+    #     frameon=True,
+    #     fontsize=12,
+    #     ncol = 2
+    # )
 
     # Add the legend below the x-axis
+    delta_y = -0.45
+    if num_plots > 2:
+        delta_y = -0.2
+
     ax.legend(
         handles=handles,
-        loc='upper right',
-        frameon=True,
-        fontsize=12
+        loc='upper center',
+        bbox_to_anchor=(0.5, delta_y),  # Place legend below the axes
+        ncol=len(handles),
+        frameon=True
     )
 
     plt.tight_layout()
@@ -471,10 +597,13 @@ def plot_pie_chart_from_value_counts(value_counts, output_pdf, column_descriptio
         title (str): Title for the chart.
     """
      # Prepare descriptions for each category
+    plt.cm.get_cmap('Set3')
+
     categories = value_counts.index.astype(str)
     descriptions = []
     max_box_width = 30  # characters per line in the box
     max_box_lines = 4   # max lines per box
+    fontsize = 10
 
     for cat in categories:
         desc = column_description_dict.get(cat, cat)
@@ -486,22 +615,18 @@ def plot_pie_chart_from_value_counts(value_counts, output_pdf, column_descriptio
             wrapped[-1] += '...'
         descriptions.append('\n'.join(wrapped))
 
-    def autopct_format(pct, allvals):
-        absolute = int(round(pct/100.*sum(allvals)))
-        return f"{pct:.1f}%\n({absolute})"
-
     # Set up a fixed-size figure for consistency
     fig, ax = plt.subplots(figsize=(8, 8))
 
     # Pie chart
-    wedges, texts, autotexts = ax.pie(
+    pie_radius = 0.8
+    wedges, _ = ax.pie(
         value_counts.values,
-        labels=None,  # No labels on the pie itself
-        autopct=lambda pct: autopct_format(pct, value_counts.values),
+        labels=None,
         startangle=90,
         counterclock=False,
-        textprops={'fontsize': 10},
-        radius=1.0
+        radius=pie_radius,  # smaller pie
+        wedgeprops=dict(width=pie_radius, edgecolor='w')
     )
     ax.set_title(title)
     ax.axis('equal')  # Equal aspect ratio for a perfect circle
@@ -516,21 +641,67 @@ def plot_pie_chart_from_value_counts(value_counts, output_pdf, column_descriptio
         angles.append((current_angle - angle / 2) % 360)
         current_angle -= angle
 
-    # Place description boxes
-    for i, (angle, desc, wedge) in enumerate(zip(angles, descriptions, wedges)):
-        # Convert angle to radians
+    # Compute box sizes based on text
+    box_positions = []
+    box_sizes = []
+    renderer = fig.canvas.get_renderer()
+    for i, desc in enumerate(descriptions):
+        value = value_counts.values[i]
+        percent = 100 * value / total if total > 0 else 0
+        box_text = f"{desc}\n{value} ({percent:.1f}%)"
+        t = ax.text(0, 0, box_text, fontsize=fontsize, ha='center', va='center', bbox=dict(boxstyle="round,pad=0.5"))
+        bbox_disp = t.get_window_extent(renderer=renderer)
+        # Convert display (pixel) to axes coordinates
+        inv = ax.transData.inverted()
+        bbox_data = inv.transform([[bbox_disp.x0, bbox_disp.y0], [bbox_disp.x1, bbox_disp.y1]])
+        box_width = abs(bbox_data[1][0] - bbox_data[0][0])
+        box_height = abs(bbox_data[1][1] - bbox_data[0][1])
+        box_sizes.append((box_width, box_height))
+        t.remove()
+
+    # Place boxes, moving outward if they overlap the pie
+    min_r = 0.95
+    max_r = 1.35
+    step_r = 0.02
+    final_positions = []
+    for i, angle in enumerate(angles):
         theta = np.deg2rad(angle)
-        # Position: just outside the pie (r=1.2)
-        r = 1.2
-        x = r * np.cos(theta)
-        y = r * np.sin(theta)
-        # Draw a box with background color matching the wedge
-        bbox_props = dict(boxstyle="round,pad=0.4", fc=wedge.get_facecolor(), ec="gray", alpha=0.25)
+        box_width, box_height = box_sizes[i]
+        r = min_r
+        while r <= max_r:
+            x = r * np.cos(theta)
+            y = r * np.sin(theta)
+            # Check all 4 corners
+            overlap = False
+            for dx in [-box_width/2, box_width/2]:
+                for dy in [-box_height/2, box_height/2]:
+                    dist = np.sqrt((x+dx)**2 + (y+dy)**2)
+                    if dist < (pie_radius+0.05):
+                        overlap = True
+            if not overlap:
+                break
+            r += step_r
+        final_positions.append([x, y, box_width, box_height])
+
+    # Now resolve box-on-box overlap, preferring horizontal movement if less than vertical
+    final_positions = _resolve_horizontal_overlap(final_positions, ax)
+
+    # Place description boxes at adjusted positions
+    for i, (x, y, box_width, box_height) in enumerate(final_positions):
+        desc = descriptions[i]
+        value = value_counts.values[i]
+        percent = 100 * value / total if total > 0 else 0
+        box_text = f"{desc}\n{value} ({percent:.1f}\%)"
+        bbox_props = dict(boxstyle="round,pad=0.5", fc=wedges[i].get_facecolor(), ec="gray", alpha=0.25)
         ax.text(
-            x, y, desc,
-            ha='center', va='center', fontsize=10, family='monospace',
+            x, y, box_text,
+            ha='center', va='center', fontsize=fontsize,
             bbox=bbox_props, wrap=True
         )
+
+    # Remove all axis ticks and labels
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     plt.tight_layout()
     with PdfPages(output_pdf) as pdf:

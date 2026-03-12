@@ -168,8 +168,8 @@ def save_element_type_boxplots(
     fixed_width = 8
     row_height = 0.4  # Adjust for more/less vertical space per boxplot
     n_rows = len(df_element_type_counts.columns)
-    min_height = 2
-    figsize = (fixed_width, max(min_height, n_rows * row_height))
+    min_height = 1
+    figsize = (fixed_width, max(min_height, n_rows * row_height + 0.7))
 
     plt.figure(figsize=figsize)
     ax = df_element_type_counts.boxplot(
@@ -180,6 +180,7 @@ def save_element_type_boxplots(
         meanline=True,
         medianprops={'linewidth': 4, 'color': 'red', 'linestyle': 'solid'},
         meanprops={'linewidth': 3, 'color': 'orange', 'linestyle': 'solid'},
+        widths=0.5
         )
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)    
@@ -254,18 +255,23 @@ def save_element_type_boxplots(
     handles = [mean_line, median_line]
 
     if max_series is not None:
-        vertical_line = mlines.Line2D([0, 0], [0, 1], color='green', linestyle='--', linewidth=2, alpha=0.7, label='Max value')
+        vertical_line = mlines.Line2D([0, 0], [0, 1], color='green', linestyle='--', linewidth=2, alpha=0.7, label='Maximal number of elements')
         handles.append(vertical_line)
 
+    y_anchor = -0.4  # Adjust as needed
+    if n_rows > 5:
+        y_anchor = -0.1 
     ax.legend(
         handles=handles,
         loc='upper center',
-        bbox_to_anchor=(0.5, -0.15),  # Place legend below the axes
+        bbox_to_anchor=(0.5, y_anchor),  # Place legend below the axes
         ncol=len(handles),
         frameon=True
     )
 
     plt.tight_layout()
+    if y_anchor < -0.2:
+        plt.subplots_adjust(bottom=-y_anchor)  # Increase as needed (e.g., 0.22 or 0.25)
     plt.savefig(output_pdf_path, format='pdf')
     plt.savefig(output_pdf_path.replace('.pdf', '.png'), format='png')
     plt.close()

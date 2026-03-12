@@ -38,7 +38,8 @@ def calculate_mean_variance(
 
 def calculate_sus(
     df: pd.DataFrame,
-    counting: Dict[str, bool]
+    counting: Dict[str, bool],
+    mapping_required: bool = True
 ) -> pd.Series:
     """
     Calculates the System Usability Scale (SUS) score for each row in the DataFrame.
@@ -70,7 +71,10 @@ def calculate_sus(
     for col, couting_positive in counting.items():
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in DataFrame.")
-        mapped = df[col].map(likert_mapping)
+        if mapping_required:
+            mapped = df[col].map(likert_mapping)
+        else:
+            mapped = df[col]
         if couting_positive:
             data += (mapped - 1).fillna(0)
         else:
